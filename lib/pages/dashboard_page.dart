@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/header/top_header_section.dart';
+import '../widgets/daily_progress/daily_progress_overview.dart';
 
-/// Dashboard page — hosts the TopHeaderSection at the top and leaves the
-/// rest of the body for future habit-tracking content.
+/// Dashboard page — hosts the TopHeaderSection at the top and the
+/// DailyProgressOverview hero section in the scrollable body below.
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 
@@ -17,7 +18,7 @@ class DashboardPage extends StatelessWidget {
           // ── Premium Header ───────────────────────────────────────────────
           TopHeaderSection(
             userName: 'Tharuka',
-            // avatarUrl: 'https://example.com/avatar.jpg', // plug in real URL
+            // avatarUrl: 'https://example.com/avatar.jpg',
             notificationCount: 3,
             onAvatarTap: () {
               // TODO: Navigate to Profile page
@@ -33,72 +34,11 @@ class DashboardPage extends StatelessWidget {
             },
           ),
 
-          // ── Body Placeholder ─────────────────────────────────────────────
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 24),
-                    _SectionPlaceholder(
-                      label: 'Today\'s Habits',
-                      height: 180,
-                    ),
-                    const SizedBox(height: 16),
-                    _SectionPlaceholder(
-                      label: 'Weekly Progress',
-                      height: 140,
-                    ),
-                    const SizedBox(height: 16),
-                    _SectionPlaceholder(
-                      label: 'Streaks',
-                      height: 120,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          // ── Daily Progress Overview (hero body) ──────────────────────────
+          const Expanded(
+            child: DailyProgressOverview(),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Placeholder cards – will be replaced by real habit widgets later
-// ────────────────────────────────────────────────────────────────────────────
-
-class _SectionPlaceholder extends StatelessWidget {
-  const _SectionPlaceholder({required this.label, required this.height});
-  final String label;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: height,
-      decoration: BoxDecoration(
-        color: AppColors.glassSurface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.glassBorder, width: 1),
-      ),
-      child: Center(
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.textMuted,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
       ),
     );
   }
