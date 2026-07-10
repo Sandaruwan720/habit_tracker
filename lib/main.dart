@@ -6,18 +6,16 @@ import 'pages/dashboard_page.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to portrait for a focused mobile experience
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  // Allow all orientations — the analytics dashboard is optimised for landscape
+  // on tablets/desktops and adapts gracefully to portrait on phones.
+  SystemChrome.setPreferredOrientations(DeviceOrientation.values);
 
   // Transparent status bar so our header gradient bleeds through
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFF0F172A),
+      systemNavigationBarColor: Color(0xFF0A0E1A),
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
