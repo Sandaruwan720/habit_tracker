@@ -10,20 +10,11 @@ import '../widgets/dashboard/stat_metric_card.dart';
 import '../widgets/dashboard/completion_line_chart.dart';
 import '../widgets/dashboard/category_donut_chart.dart';
 import '../widgets/dashboard/monthly_bar_chart.dart';
-import '../widgets/dashboard/habits_data_table.dart';
+import '../widgets/dashboard/adaptive_habits_layout.dart';
 import '../widgets/dashboard/streak_achievements_card.dart';
 import '../widgets/dashboard/activity_feed_card.dart';
 
-/// Full professional analytics dashboard page.
-///
-/// Layout:
-///   [SidebarNav 220px] | [TopDashboardHeader + ScrollableContent]
-///
-/// Content rows:
-///   1. 5 KPI stat cards
-///   2. Line chart + Donut chart + Bar chart
-///   3. Habits table + Achievements + Activity feed
-///   4. Bottom 3-stat summary row
+/// Full professional analytics dashboard page with responsive architecture.
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -33,7 +24,6 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedNavIndex = 0;
-
   List<HabitModel> _habits = List.from(DashboardAnalytics.habits);
 
   void _toggleHabit(String id) {
@@ -46,104 +36,54 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   int get _completedCount => _habits.where((h) => h.isCompleted).length;
-  double get _todayCompletion => _habits.isEmpty
-      ? 0
-      : (_completedCount / _habits.length) * 100;
+  double get _todayCompletion =>
+      _habits.isEmpty ? 0 : (_completedCount / _habits.length) * 100;
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+    final isTablet = screenWidth >= 800 && screenWidth < 1200;
+    final isDesktop = screenWidth >= 1200;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0A0E1A),
+      bottomNavigationBar: isMobile ? _buildBottomNav() : null,
       body: Row(
         children: [
-          // ── Sidebar ──────────────────────────────────────────────────────
-          SidebarNav(
-            selectedIndex: _selectedNavIndex,
-            onItemTap: (i) => setState(() => _selectedNavIndex = i),
-          ),
+          // ── Sidebar (Tablet & Desktop only) ────────────────────────────────
+          if (!isMobile)
+            SidebarNav(
+              selectedIndex: _selectedNavIndex,
+              onItemTap: (i) => setState(() => _selectedNavIndex = i),
+            ),
 
-          // ── Main content ─────────────────────────────────────────────────
+          // ── Main Content ───────────────────────────────────────────────────
           Expanded(
             child: Column(
               children: [
-                // Top header
                 const TopDashboardHeader(userName: 'Tharuka'),
-
-                // Scrollable body
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(isMobile ? 16 : 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ── Row 1: KPI stat cards ──────────────────────────
-                        _buildStatsRow(),
-
+                        // 1. KPI Stats
+                        _buildStatsSection(isMobile, isTablet, isDesktop),
                         const SizedBox(height: 24),
 
-                        // ── Row 2: Charts ──────────────────────────────────
-                        IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Line chart — 5 parts
-                              const Expanded(
-                                flex: 5,
-                                child: CompletionLineChart(),
-                              ),
-                              const SizedBox(width: 16),
-                              // Donut chart — 3 parts
-                              const Expanded(
-                                flex: 3,
-                                child: CategoryDonutChart(),
-                              ),
-                              const SizedBox(width: 16),
-                              // Bar chart — 4 parts
-                              const Expanded(
-                                flex: 4,
-                                child: MonthlyBarChart(),
-                              ),
-                            ],
-                          ),
-                        ),
-
+                        // 2. Charts
+                        _buildChartsSection(isMobile, isTablet, isDesktop),
                         const SizedBox(height: 24),
 
-                        // ── Row 3: Table + Cards ───────────────────────────
-                        IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Habits data table — 5 parts
-                              Expanded(
-                                flex: 5,
-                                child: HabitsDataTable(
-                                  habits: _habits,
-                                  onToggle: _toggleHabit,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              // Achievements — 3 parts
-                              const Expanded(
-                                flex: 3,
-                                child: StreakAchievementsCard(),
-                              ),
-                              const SizedBox(width: 16),
-                              // Activity feed — 4 parts
-                              const Expanded(
-                                flex: 4,
-                                child: ActivityFeedCard(),
-                              ),
-                            ],
-                          ),
-                        ),
-
+                        // 3. Habits Table/Cards + Achievements + Activity
+                        _buildHabitsSection(isMobile, isTablet, isDesktop),
                         const SizedBox(height: 24),
 
-                        // ── Row 4: Bottom summary ──────────────────────────
-                        _buildBottomSummaryRow(),
-
+                        // 4. Bottom Summary
+                        _buildBottomSummarySection(isMobile, isTablet, isDesktop),
                         const SizedBox(height: 8),
                       ],
                     ),
@@ -158,116 +98,266 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Stats row — 5 KPI cards
+  // Bottom Nav (Mobile Only)
   // ──────────────────────────────────────────────────────────────────────────
 
-  Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: StatMetricCard(
-            label: 'Current Streak',
-            value: '${DashboardAnalytics.currentStreak}',
-            unit: 'Days',
-            change: DashboardAnalytics.streakChange,
-            icon: Icons.local_fire_department_rounded,
-            gradient: AppColors.streakGradient,
-            glowColor: AppColors.orangeGlow,
-            animationDelay: 50.ms,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: StatMetricCard(
-            label: "Today's Progress",
-            value: '${_todayCompletion.toInt()}',
-            unit: '%',
-            change: DashboardAnalytics.completionChange,
-            icon: Icons.donut_large_rounded,
-            gradient: AppColors.progressGradient,
-            glowColor: AppColors.greenGlow,
-            animationDelay: 120.ms,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: StatMetricCard(
-            label: 'Habits Completed',
-            value: '$_completedCount / ${_habits.length}',
-            unit: '',
-            change: DashboardAnalytics.completedChange,
-            icon: Icons.check_circle_rounded,
-            gradient: AppColors.progressGradient,
-            glowColor: AppColors.greenGlow,
-            animationDelay: 190.ms,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: StatMetricCard(
-            label: 'Consistency',
-            value: '${DashboardAnalytics.consistency.toInt()}',
-            unit: '%',
-            change: DashboardAnalytics.consistencyChange,
-            icon: Icons.stars_rounded,
-            gradient: AppColors.accentGradient,
-            glowColor: AppColors.indigoGlow,
-            animationDelay: 260.ms,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: StatMetricCard(
-            label: 'Best Streak',
-            value: '${DashboardAnalytics.bestStreak}',
-            unit: 'Days',
-            change: DashboardAnalytics.bestStreakChange,
-            icon: Icons.emoji_events_rounded,
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF59E0B), Color(0xFFEF4444)]),
-            glowColor: AppColors.orangeGlow,
-            animationDelay: 330.ms,
-          ),
-        ),
-      ],
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A0E1A),
+        border: Border(top: BorderSide(color: AppColors.glassBorder)),
+      ),
+      child: BottomNavigationBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _selectedNavIndex,
+        onTap: (i) => setState(() => _selectedNavIndex = i),
+        selectedItemColor: AppColors.progressGreen,
+        unselectedItemColor: AppColors.textMuted,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.check_circle_outline_rounded), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.bar_chart_rounded), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.groups_rounded), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: ''),
+        ],
+      ),
     );
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Bottom summary — 3 wide info cards
+  // 1. Stats Section
   // ──────────────────────────────────────────────────────────────────────────
 
-  Widget _buildBottomSummaryRow() {
-    return Row(
-      children: [
-        Expanded(child: _SummaryCard(
-          emoji: '👥',
-          label: 'Total Habits',
-          value: '${_habits.length}',
-          change: '+ 0%',
-          isPositive: true,
-          delay: 700.ms,
-        )),
-        const SizedBox(width: 16),
-        Expanded(child: _SummaryCard(
-          emoji: '🏃',
-          label: 'Active Streaks',
-          value: '${_habits.where((h) => h.streakDays > 7).length}',
-          change: '+ 10.4%',
-          isPositive: true,
-          delay: 780.ms,
-        )),
-        const SizedBox(width: 16),
-        Expanded(child: _SummaryCard(
-          emoji: '🔄',
-          label: 'Repeat Rate',
-          value: '${DashboardAnalytics.consistency.toInt()}%',
-          change: '+ 7.3%',
-          isPositive: true,
-          delay: 860.ms,
-        )),
-      ],
+  Widget _buildStatsSection(bool isMobile, bool isTablet, bool isDesktop) {
+    final cards = [
+      StatMetricCard(
+        label: 'Current Streak',
+        value: '${DashboardAnalytics.currentStreak}',
+        unit: 'Days',
+        change: DashboardAnalytics.streakChange,
+        icon: Icons.local_fire_department_rounded,
+        gradient: AppColors.streakGradient,
+        glowColor: AppColors.orangeGlow,
+        animationDelay: 50.ms,
+      ),
+      StatMetricCard(
+        label: "Today's Progress",
+        value: '${_todayCompletion.toInt()}',
+        unit: '%',
+        change: DashboardAnalytics.completionChange,
+        icon: Icons.donut_large_rounded,
+        gradient: AppColors.progressGradient,
+        glowColor: AppColors.greenGlow,
+        animationDelay: 120.ms,
+      ),
+      StatMetricCard(
+        label: 'Habits Completed',
+        value: '$_completedCount / ${_habits.length}',
+        unit: '',
+        change: DashboardAnalytics.completedChange,
+        icon: Icons.check_circle_rounded,
+        gradient: AppColors.progressGradient,
+        glowColor: AppColors.greenGlow,
+        animationDelay: 190.ms,
+      ),
+      StatMetricCard(
+        label: 'Consistency',
+        value: '${DashboardAnalytics.consistency.toInt()}',
+        unit: '%',
+        change: DashboardAnalytics.consistencyChange,
+        icon: Icons.stars_rounded,
+        gradient: AppColors.accentGradient,
+        glowColor: AppColors.indigoGlow,
+        animationDelay: 260.ms,
+      ),
+      StatMetricCard(
+        label: 'Best Streak',
+        value: '${DashboardAnalytics.bestStreak}',
+        unit: 'Days',
+        change: DashboardAnalytics.bestStreakChange,
+        icon: Icons.emoji_events_rounded,
+        gradient: const LinearGradient(
+            colors: [Color(0xFFF59E0B), Color(0xFFEF4444)]),
+        glowColor: AppColors.orangeGlow,
+        animationDelay: 330.ms,
+      ),
+    ];
+
+    if (isDesktop) {
+      return Row(
+        children: cards.map((c) => Expanded(child: Padding(
+          padding: EdgeInsets.only(right: c == cards.last ? 0 : 16),
+          child: c,
+        ))).toList(),
+      );
+    } else if (isTablet) {
+      return Wrap(
+        spacing: 16,
+        runSpacing: 16,
+        children: cards.map((c) => SizedBox(
+          width: MediaQuery.of(context).size.width / 2 - (220/2) - 40, // rough 2 col calc
+          child: c,
+        )).toList(),
+      );
+    } else {
+      // Mobile - Horizontal Scroll
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        clipBehavior: Clip.none,
+        child: Row(
+          children: cards.map((c) => Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: SizedBox(width: 160, child: c),
+          )).toList(),
+        ),
+      );
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 2. Charts Section
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Widget _buildChartsSection(bool isMobile, bool isTablet, bool isDesktop) {
+    if (isDesktop) {
+      return const IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(flex: 5, child: CompletionLineChart()),
+            SizedBox(width: 16),
+            Expanded(flex: 3, child: CategoryDonutChart()),
+            SizedBox(width: 16),
+            Expanded(flex: 4, child: MonthlyBarChart()),
+          ],
+        ),
+      );
+    } else if (isTablet) {
+      return const Column(
+        children: [
+          SizedBox(height: 300, child: CompletionLineChart()),
+          SizedBox(height: 16),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 1, child: CategoryDonutChart()),
+                SizedBox(width: 16),
+                Expanded(flex: 1, child: MonthlyBarChart()),
+              ],
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Mobile - Stack Vertically
+      return const Column(
+        children: [
+          SizedBox(height: 300, child: CompletionLineChart()),
+          SizedBox(height: 16),
+          SizedBox(height: 280, child: CategoryDonutChart()),
+          SizedBox(height: 16),
+          SizedBox(height: 280, child: MonthlyBarChart()),
+        ],
+      );
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 3. Habits Section (Adaptive layout) + Achievements + Activity
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Widget _buildHabitsSection(bool isMobile, bool isTablet, bool isDesktop) {
+    final habitsLayout = AdaptiveHabitsLayout(
+      habits: _habits,
+      onToggle: _toggleHabit,
     );
+
+    if (isDesktop) {
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(flex: 5, child: habitsLayout),
+            const SizedBox(width: 16),
+            const Expanded(flex: 3, child: StreakAchievementsCard()),
+            const SizedBox(width: 16),
+            const Expanded(flex: 4, child: ActivityFeedCard()),
+          ],
+        ),
+      );
+    } else if (isTablet) {
+      return Column(
+        children: [
+          habitsLayout,
+          const SizedBox(height: 16),
+          const IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(flex: 1, child: StreakAchievementsCard()),
+                SizedBox(width: 16),
+                Expanded(flex: 1, child: ActivityFeedCard()),
+              ],
+            ),
+          ),
+        ],
+      );
+    } else {
+      // Mobile - Stack Vertically
+      return Column(
+        children: [
+          habitsLayout,
+          const SizedBox(height: 16),
+          const StreakAchievementsCard(),
+          const SizedBox(height: 16),
+          const ActivityFeedCard(),
+        ],
+      );
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // 4. Bottom Summary
+  // ──────────────────────────────────────────────────────────────────────────
+
+  Widget _buildBottomSummarySection(bool isMobile, bool isTablet, bool isDesktop) {
+    final cards = [
+      _SummaryCard(
+        emoji: '👥', label: 'Total Habits', value: '${_habits.length}',
+        change: '+ 0%', isPositive: true, delay: 700.ms,
+      ),
+      _SummaryCard(
+        emoji: '🏃', label: 'Active Streaks', value: '${_habits.where((h) => h.streakDays > 7).length}',
+        change: '+ 10.4%', isPositive: true, delay: 780.ms,
+      ),
+      _SummaryCard(
+        emoji: '🔄', label: 'Repeat Rate', value: '${DashboardAnalytics.consistency.toInt()}%',
+        change: '+ 7.3%', isPositive: true, delay: 860.ms,
+      ),
+    ];
+
+    if (isDesktop) {
+      return Row(
+        children: cards.map((c) => Expanded(child: Padding(
+          padding: EdgeInsets.only(right: c == cards.last ? 0 : 16),
+          child: c,
+        ))).toList(),
+      );
+    } else {
+      // Tablet & Mobile - Stack vertically
+      return Column(
+        children: cards.map((c) => Padding(
+          padding: EdgeInsets.only(bottom: c == cards.last ? 0 : 16),
+          child: c,
+        )).toList(),
+      );
+    }
   }
 }
 
@@ -277,12 +367,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
-    required this.emoji,
-    required this.label,
-    required this.value,
-    required this.change,
-    required this.isPositive,
-    required this.delay,
+    required this.emoji, required this.label, required this.value,
+    required this.change, required this.isPositive, required this.delay,
   });
   final String emoji;
   final String label;
@@ -293,8 +379,7 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isPositive
-        ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
+    final color = isPositive ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
 
     return Container(
       padding: const EdgeInsets.all(20),
