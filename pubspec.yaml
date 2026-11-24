@@ -42,11 +42,12 @@ dependencies:
   provider: ^6.1.2
 
   # Cloud Backend
-  supabase_flutter: ^2.9.0
+  supabase_flutter: ^2.18.3
 
   # Local Database
   sqflite: ^2.4.2
   sqflite_common_ffi: ^2.3.4
+  sqflite_common_ffi_web: ^1.2.2
   path: ^1.9.1
 
   # Network & Storage

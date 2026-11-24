@@ -7,7 +7,7 @@ import '../widgets/curved_background_painter.dart';
 import '../widgets/hero_illustration.dart';
 import '../widgets/login_form.dart';
 import '../widgets/login_header.dart';
-import '../../../../pages/dashboard_page.dart';
+import '../../../../pages/app_shell.dart';
 
 /// Root login screen widget.
 ///
@@ -43,7 +43,7 @@ class _LoginScreenState extends State<LoginScreen> {
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
           opacity: animation,
-          child: const DashboardPage(),
+          child: const AppShell(),
         ),
         transitionDuration: const Duration(milliseconds: 500),
       ),

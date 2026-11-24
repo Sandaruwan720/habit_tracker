@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../domain/entities/user_entity.dart';
 
@@ -39,7 +40,9 @@ class AuthRemoteDatasource {
     final OAuthProvider oauthProvider = _resolveProvider(provider);
     await _client.auth.signInWithOAuth(
       oauthProvider,
-      redirectTo: 'io.supabase.habitflow://login-callback/',
+      redirectTo: kIsWeb
+          ? Uri.base.resolve('.').toString()
+          : 'io.supabase.habitflow://login-callback/',
     );
   }
 

@@ -3,9 +3,17 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../controllers/login_controller.dart';
+import '../screens/register_screen.dart';
 import 'glass_text_field.dart';
 import 'animated_gradient_button.dart';
 import 'social_login_section.dart';
+
+/// Thin proxy widget that just pushes RegisterScreen — avoids circular imports.
+class _RegisterScreenProxy extends StatelessWidget {
+  const _RegisterScreenProxy();
+  @override
+  Widget build(BuildContext context) => const RegisterScreen();
+}
 
 /// The complete authentication form — email, password, remember me,
 /// forgot password, sign in button, social login, and sign-up link.
@@ -230,7 +238,11 @@ class _LoginFormState extends State<LoginForm> {
                     label: 'Create Account',
                     color: const Color(0xFF22C55E),
                     onTap: () {
-                      // TODO: Navigate to sign-up screen
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const _RegisterScreenProxy(),
+                        ),
+                      );
                     },
                   ),
                 ],

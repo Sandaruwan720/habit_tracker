@@ -1,6 +1,12 @@
-import 'dart:io';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:path/path.dart';
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:path/path.dart' as path;
+import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'
+    show databaseFactoryFfi, sqfliteFfiInit;
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'
+    show databaseFactoryFfiWeb;
 
 /// Manages the local SQLite database lifecycle and schema.
 class DatabaseHelper {
@@ -22,19 +28,29 @@ class DatabaseHelper {
   // ---------------------------------------------------------------------------
 
   static Future<Database> _init() async {
-    // sqflite_common_ffi is required on Windows / Linux / macOS desktops.
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
+    final factory = _databaseFactory;
+    final databasePath = path.join(await factory.getDatabasesPath(), _dbName);
+    return factory.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: _dbVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      ),
+    );
+  }
+
+  static DatabaseFactory get _databaseFactory {
+    if (kIsWeb) {
+      return databaseFactoryFfiWeb;
     }
 
-    final path = join(await getDatabasesPath(), _dbName);
-    return openDatabase(
-      path,
-      version: _dbVersion,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      sqfliteFfiInit();
+      return databaseFactoryFfi;
+    }
+
+    return databaseFactory;
   }
 
   // ---------------------------------------------------------------------------

@@ -1,41 +1,36 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/config/app_config.dart';
 import 'core/database/database_helper.dart';
 import 'core/database/sync_manager.dart';
 import 'core/network/connectivity_service.dart';
+import 'core/providers/habits_provider.dart';
 import 'features/habits/data/datasources/habits_local_datasource.dart';
 import 'features/habits/data/datasources/habits_remote_datasource.dart';
 import 'theme/app_theme.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
+import 'pages/app_shell.dart';
 
-// Lazy singleton references — accessible app-wide
+// Lazy singleton references – accessible app-wide
 late final ConnectivityService connectivityService;
 late final SyncManager syncManager;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── SQLite desktop initialisation ─────────────────────────────────────────
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-
-  // ── Supabase ──────────────────────────────────────────────────────────────
+  // ── Supabase ────────────────────────────────────────────────────────────────
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
-    // ignore: deprecated_member_use — publishableKey is the new name in v2.16+
+    // ignore: deprecated_member_use
     anonKey: AppConfig.supabaseAnonKey,
   );
 
-  // ── Warm up the local database ────────────────────────────────────────────
+  // ── Warm up the local database ──────────────────────────────────────────────
   await DatabaseHelper.database;
 
-  // ── Connectivity + Sync ───────────────────────────────────────────────────
+  // ── Connectivity + Sync ─────────────────────────────────────────────────────
   connectivityService = ConnectivityService()..initialize();
 
   syncManager = SyncManager(
@@ -44,7 +39,7 @@ Future<void> main() async {
     connectivity: connectivityService,
   )..initialize();
 
-  // ── System UI ─────────────────────────────────────────────────────────────
+  // ── System UI ───────────────────────────────────────────────────────────────
   SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -63,11 +58,19 @@ class HabitTrackerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'HabitFlow',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      home: const LoginScreen(),
+    return ChangeNotifierProvider(
+      create: (_) => HabitsProvider(),
+      child: MaterialApp(
+        title: 'HabitFlow',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.dark,
+        routes: {
+          '/': (_) => Supabase.instance.client.auth.currentUser == null
+              ? const LoginScreen()
+              : const AppShell(),
+          '/home': (_) => const AppShell(),
+        },
+      ),
     );
   }
 }
