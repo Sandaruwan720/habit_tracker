@@ -12,10 +12,10 @@ class AppConfig {
   // ---------------------------------------------------------------------------
 
   /// Your Supabase project URL, e.g. https://xxxxxxxxxxxx.supabase.co
-  static const String supabaseUrl = 'YOUR_SUPABASE_PROJECT_URL';
+  static const String supabaseUrl = 'https://omhxptrgxkfrqpmbharb.supabase.co';
 
   /// Your Supabase anon/public key
-  static const String supabaseAnonKey = 'YOUR_SUPABASE_ANON_KEY';
+  static const String supabaseAnonKey = 'sb_publishable_Nfo09ie_RUfuKpzqFMoQ5g_tA0_skoN';
 
   // ---------------------------------------------------------------------------
   // Sync
