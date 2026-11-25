@@ -156,9 +156,10 @@ class TopDashboardHeader extends StatelessWidget {
                     gradient: AppColors.accentGradient,
                     shape: BoxShape.circle,
                   ),
-                  child: const Center(
-                    child: Text('T',
-                      style: TextStyle(
+                  child: Center(
+                    child: Text(
+                      userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
                         fontSize: 11,

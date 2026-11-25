@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/dashboard_analytics.dart';
-import '../models/habit_model.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/providers/habits_provider.dart';
+import '../features/habits/domain/entities/habit_entity.dart';
 import '../theme/app_colors.dart';
 import '../widgets/dashboard/sidebar_nav.dart';
 import '../widgets/dashboard/top_dashboard_header.dart';
@@ -14,7 +16,7 @@ import '../widgets/dashboard/adaptive_habits_layout.dart';
 import '../widgets/dashboard/streak_achievements_card.dart';
 import '../widgets/dashboard/activity_feed_card.dart';
 
-/// Full professional analytics dashboard page with responsive architecture.
+/// Full professional analytics dashboard page — connected to real HabitsProvider.
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
 
@@ -24,20 +26,17 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedNavIndex = 0;
-  List<HabitModel> _habits = List.from(DashboardAnalytics.habits);
 
-  void _toggleHabit(String id) {
-    setState(() {
-      _habits = _habits.map((h) {
-        if (h.id == id) return h.copyWith(isCompleted: !h.isCompleted);
-        return h;
-      }).toList();
-    });
+  // Derive username from Supabase email (part before @)
+  String get _displayName {
+    final email =
+        Supabase.instance.client.auth.currentUser?.email ?? '';
+    if (email.contains('@')) {
+      final name = email.split('@').first;
+      return name[0].toUpperCase() + name.substring(1);
+    }
+    return 'User';
   }
-
-  int get _completedCount => _habits.where((h) => h.isCompleted).length;
-  double get _todayCompletion =>
-      _habits.isEmpty ? 0 : (_completedCount / _habits.length) * 100;
 
   @override
   Widget build(BuildContext context) {
@@ -46,184 +45,201 @@ class _DashboardPageState extends State<DashboardPage> {
     final isTablet = screenWidth >= 800 && screenWidth < 1200;
     final isDesktop = screenWidth >= 1200;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0E1A),
-      bottomNavigationBar: isMobile ? _buildBottomNav() : null,
-      body: Row(
-        children: [
-          // ── Sidebar (Tablet & Desktop only) ────────────────────────────────
-          if (!isMobile)
-            SidebarNav(
-              selectedIndex: _selectedNavIndex,
-              onItemTap: (i) => setState(() => _selectedNavIndex = i),
-            ),
+    return Consumer<HabitsProvider>(
+      builder: (context, provider, _) {
+        final habits = provider.habits.toList();
+        final completedIds = {
+          for (final h in habits)
+            if (provider.isCompletedToday(h.id)) h.id,
+        };
+        final completedCount = completedIds.length;
+        final totalCount = habits.length;
+        final completionPercent = provider.todayCompletionPercent;
 
-          // ── Main Content ───────────────────────────────────────────────────
-          Expanded(
-            child: Column(
-              children: [
-                const TopDashboardHeader(userName: 'Tharuka'),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.all(isMobile ? 16 : 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 1. KPI Stats
-                        _buildStatsSection(isMobile, isTablet, isDesktop),
-                        const SizedBox(height: 24),
-
-                        // 2. Charts
-                        _buildChartsSection(isMobile, isTablet, isDesktop),
-                        const SizedBox(height: 24),
-
-                        // 3. Habits Table/Cards + Achievements + Activity
-                        _buildHabitsSection(isMobile, isTablet, isDesktop),
-                        const SizedBox(height: 24),
-
-                        // 4. Bottom Summary
-                        _buildBottomSummarySection(isMobile, isTablet, isDesktop),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
+        return Scaffold(
+          backgroundColor: const Color(0xFF0A0E1A),
+          // No bottom nav here — AppShell provides it
+          body: Row(
+            children: [
+              // ── Sidebar (Tablet & Desktop only) ──────────────────────────
+              if (!isMobile)
+                SidebarNav(
+                  selectedIndex: _selectedNavIndex,
+                  onItemTap: (i) => setState(() => _selectedNavIndex = i),
                 ),
-              ],
-            ),
+
+              // ── Main Content ──────────────────────────────────────────────
+              Expanded(
+                child: Column(
+                  children: [
+                    TopDashboardHeader(userName: _displayName),
+                    Expanded(
+                      child: provider.isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                  color: Color(0xFF6366F1)))
+                          : provider.errorMessage != null
+                              ? _ErrorView(
+                                  message: provider.errorMessage!,
+                                  onRetry: () => provider.loadHabits(),
+                                )
+                              : SingleChildScrollView(
+                                  physics: const BouncingScrollPhysics(),
+                                  padding: EdgeInsets.all(isMobile ? 16 : 24),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // 1. KPI Stats
+                                      _buildStatsSection(
+                                          isMobile,
+                                          isTablet,
+                                          isDesktop,
+                                          completedCount,
+                                          totalCount,
+                                          completionPercent),
+                                      const SizedBox(height: 24),
+
+                                      // 2. Charts
+                                      _buildChartsSection(
+                                          isMobile, isTablet, isDesktop),
+                                      const SizedBox(height: 24),
+
+                                      // 3. Habits + Achievements + Activity
+                                      _buildHabitsSection(
+                                          isMobile,
+                                          isTablet,
+                                          isDesktop,
+                                          habits,
+                                          completedIds,
+                                          completedCount,
+                                          totalCount,
+                                          completionPercent,
+                                          provider),
+                                      const SizedBox(height: 24),
+
+                                      // 4. Bottom Summary
+                                      _buildBottomSummarySection(
+                                          isMobile,
+                                          isTablet,
+                                          isDesktop,
+                                          completedCount,
+                                          totalCount,
+                                          completionPercent),
+                                      const SizedBox(height: 8),
+                                    ],
+                                  ),
+                                ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // Bottom Nav (Mobile Only)
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── 1. Stats Section ──────────────────────────────────────────────────────
 
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A0E1A),
-        border: Border(top: BorderSide(color: AppColors.glassBorder)),
-      ),
-      child: BottomNavigationBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedNavIndex,
-        onTap: (i) => setState(() => _selectedNavIndex = i),
-        selectedItemColor: AppColors.progressGreen,
-        unselectedItemColor: AppColors.textMuted,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.check_circle_outline_rounded), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart_rounded), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.groups_rounded), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.settings_rounded), label: ''),
-        ],
-      ),
-    );
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // 1. Stats Section
-  // ──────────────────────────────────────────────────────────────────────────
-
-  Widget _buildStatsSection(bool isMobile, bool isTablet, bool isDesktop) {
+  Widget _buildStatsSection(
+    bool isMobile,
+    bool isTablet,
+    bool isDesktop,
+    int completedCount,
+    int totalCount,
+    double completionPercent,
+  ) {
     final cards = [
       StatMetricCard(
-        label: 'Current Streak',
-        value: '${DashboardAnalytics.currentStreak}',
-        unit: 'Days',
-        change: DashboardAnalytics.streakChange,
-        icon: Icons.local_fire_department_rounded,
-        gradient: AppColors.streakGradient,
-        glowColor: AppColors.orangeGlow,
+        label: "Today's Progress",
+        value: '${completionPercent.toInt()}',
+        unit: '%',
+        change: 0,
+        icon: Icons.donut_large_rounded,
+        gradient: AppColors.progressGradient,
+        glowColor: AppColors.greenGlow,
         animationDelay: 50.ms,
       ),
       StatMetricCard(
-        label: "Today's Progress",
-        value: '${_todayCompletion.toInt()}',
-        unit: '%',
-        change: DashboardAnalytics.completionChange,
-        icon: Icons.donut_large_rounded,
+        label: 'Habits Completed',
+        value: '$completedCount / $totalCount',
+        unit: '',
+        change: 0,
+        icon: Icons.check_circle_rounded,
         gradient: AppColors.progressGradient,
         glowColor: AppColors.greenGlow,
         animationDelay: 120.ms,
       ),
       StatMetricCard(
-        label: 'Habits Completed',
-        value: '$_completedCount / ${_habits.length}',
+        label: 'Total Habits',
+        value: '$totalCount',
         unit: '',
-        change: DashboardAnalytics.completedChange,
-        icon: Icons.check_circle_rounded,
-        gradient: AppColors.progressGradient,
-        glowColor: AppColors.greenGlow,
+        change: 0,
+        icon: Icons.list_alt_rounded,
+        gradient: AppColors.accentGradient,
+        glowColor: AppColors.indigoGlow,
         animationDelay: 190.ms,
       ),
       StatMetricCard(
-        label: 'Consistency',
-        value: '${DashboardAnalytics.consistency.toInt()}',
-        unit: '%',
-        change: DashboardAnalytics.consistencyChange,
-        icon: Icons.stars_rounded,
-        gradient: AppColors.accentGradient,
-        glowColor: AppColors.indigoGlow,
-        animationDelay: 260.ms,
-      ),
-      StatMetricCard(
-        label: 'Best Streak',
-        value: '${DashboardAnalytics.bestStreak}',
-        unit: 'Days',
-        change: DashboardAnalytics.bestStreakChange,
-        icon: Icons.emoji_events_rounded,
-        gradient: const LinearGradient(
-            colors: [Color(0xFFF59E0B), Color(0xFFEF4444)]),
+        label: 'Remaining Today',
+        value: '${totalCount - completedCount}',
+        unit: '',
+        change: 0,
+        icon: Icons.pending_actions_rounded,
+        gradient: AppColors.streakGradient,
         glowColor: AppColors.orangeGlow,
-        animationDelay: 330.ms,
+        animationDelay: 260.ms,
       ),
     ];
 
     if (isDesktop) {
       return Row(
-        children: cards.map((c) => Expanded(child: Padding(
-          padding: EdgeInsets.only(right: c == cards.last ? 0 : 16),
-          child: c,
-        ))).toList(),
+        children: cards
+            .map((c) => Expanded(
+                  child: Padding(
+                    padding:
+                        EdgeInsets.only(right: c == cards.last ? 0 : 16),
+                    child: c,
+                  ),
+                ))
+            .toList(),
       );
     } else if (isTablet) {
       return Wrap(
         spacing: 16,
         runSpacing: 16,
-        children: cards.map((c) => SizedBox(
-          width: MediaQuery.of(context).size.width / 2 - (220/2) - 40, // rough 2 col calc
-          child: c,
-        )).toList(),
+        children: cards
+            .map((c) => SizedBox(
+                  width: MediaQuery.of(context).size.width / 2 -
+                      (220 / 2) -
+                      40,
+                  child: c,
+                ))
+            .toList(),
       );
     } else {
-      // Mobile - Horizontal Scroll
       return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         clipBehavior: Clip.none,
         child: Row(
-          children: cards.map((c) => Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: SizedBox(width: 160, child: c),
-          )).toList(),
+          children: cards
+              .map((c) => Padding(
+                    padding: const EdgeInsets.only(right: 16),
+                    child: SizedBox(width: 160, child: c),
+                  ))
+              .toList(),
         ),
       );
     }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // 2. Charts Section
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── 2. Charts Section ─────────────────────────────────────────────────────
 
-  Widget _buildChartsSection(bool isMobile, bool isTablet, bool isDesktop) {
+  Widget _buildChartsSection(
+      bool isMobile, bool isTablet, bool isDesktop) {
     if (isDesktop) {
       return const IntrinsicHeight(
         child: Row(
@@ -255,7 +271,6 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       );
     } else {
-      // Mobile - Stack Vertically
       return const Column(
         children: [
           SizedBox(height: 300, child: CompletionLineChart()),
@@ -268,14 +283,35 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // 3. Habits Section (Adaptive layout) + Achievements + Activity
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── 3. Habits Section ─────────────────────────────────────────────────────
 
-  Widget _buildHabitsSection(bool isMobile, bool isTablet, bool isDesktop) {
+  Widget _buildHabitsSection(
+    bool isMobile,
+    bool isTablet,
+    bool isDesktop,
+    List<HabitEntity> habits,
+    Set<String> completedIds,
+    int completedCount,
+    int totalCount,
+    double completionPercent,
+    HabitsProvider provider,
+  ) {
     final habitsLayout = AdaptiveHabitsLayout(
-      habits: _habits,
-      onToggle: _toggleHabit,
+      habits: habits,
+      completedIds: completedIds,
+      onToggle: (id) => provider.toggleTodayCompletion(id),
+    );
+
+    final achievementsCard = StreakAchievementsCard(
+      completedCount: completedCount,
+      totalCount: totalCount,
+      completionPercent: completionPercent,
+    );
+
+    final activityCard = ActivityFeedCard(
+      habits: habits,
+      completedIds: completedIds,
+      completionPercent: completionPercent,
     );
 
     if (isDesktop) {
@@ -285,9 +321,9 @@ class _DashboardPageState extends State<DashboardPage> {
           children: [
             Expanded(flex: 5, child: habitsLayout),
             const SizedBox(width: 16),
-            const Expanded(flex: 3, child: StreakAchievementsCard()),
+            Expanded(flex: 3, child: achievementsCard),
             const SizedBox(width: 16),
-            const Expanded(flex: 4, child: ActivityFeedCard()),
+            Expanded(flex: 4, child: activityCard),
           ],
         ),
       );
@@ -296,91 +332,142 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           habitsLayout,
           const SizedBox(height: 16),
-          const IntrinsicHeight(
+          IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(flex: 1, child: StreakAchievementsCard()),
-                SizedBox(width: 16),
-                Expanded(flex: 1, child: ActivityFeedCard()),
+                Expanded(flex: 1, child: achievementsCard),
+                const SizedBox(width: 16),
+                Expanded(flex: 1, child: activityCard),
               ],
             ),
           ),
         ],
       );
     } else {
-      // Mobile - Stack Vertically
       return Column(
         children: [
           habitsLayout,
           const SizedBox(height: 16),
-          const StreakAchievementsCard(),
+          achievementsCard,
           const SizedBox(height: 16),
-          const ActivityFeedCard(),
+          activityCard,
         ],
       );
     }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // 4. Bottom Summary
-  // ──────────────────────────────────────────────────────────────────────────
+  // ── 4. Bottom Summary ─────────────────────────────────────────────────────
 
-  Widget _buildBottomSummarySection(bool isMobile, bool isTablet, bool isDesktop) {
+  Widget _buildBottomSummarySection(
+    bool isMobile,
+    bool isTablet,
+    bool isDesktop,
+    int completedCount,
+    int totalCount,
+    double completionPercent,
+  ) {
     final cards = [
       _SummaryCard(
-        emoji: '👥', label: 'Total Habits', value: '${_habits.length}',
-        change: '+ 0%', isPositive: true, delay: 700.ms,
+        emoji: '👥',
+        label: 'Total Habits',
+        value: '$totalCount',
+        sub: 'active habits',
+        delay: 700.ms,
       ),
       _SummaryCard(
-        emoji: '🏃', label: 'Active Streaks', value: '${_habits.where((h) => h.streakDays > 7).length}',
-        change: '+ 10.4%', isPositive: true, delay: 780.ms,
+        emoji: '✅',
+        label: 'Done Today',
+        value: '$completedCount',
+        sub: 'of $totalCount completed',
+        delay: 780.ms,
       ),
       _SummaryCard(
-        emoji: '🔄', label: 'Repeat Rate', value: '${DashboardAnalytics.consistency.toInt()}%',
-        change: '+ 7.3%', isPositive: true, delay: 860.ms,
+        emoji: '📊',
+        label: 'Progress',
+        value: '${completionPercent.toInt()}%',
+        sub: 'today\'s completion',
+        delay: 860.ms,
       ),
     ];
 
     if (isDesktop) {
       return Row(
-        children: cards.map((c) => Expanded(child: Padding(
-          padding: EdgeInsets.only(right: c == cards.last ? 0 : 16),
-          child: c,
-        ))).toList(),
+        children: cards
+            .map((c) => Expanded(
+                  child: Padding(
+                    padding:
+                        EdgeInsets.only(right: c == cards.last ? 0 : 16),
+                    child: c,
+                  ),
+                ))
+            .toList(),
       );
     } else {
-      // Tablet & Mobile - Stack vertically
       return Column(
-        children: cards.map((c) => Padding(
-          padding: EdgeInsets.only(bottom: c == cards.last ? 0 : 16),
-          child: c,
-        )).toList(),
+        children: cards
+            .map((c) => Padding(
+                  padding:
+                      EdgeInsets.only(bottom: c == cards.last ? 0 : 16),
+                  child: c,
+                ))
+            .toList(),
       );
     }
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Summary card (bottom row)
-// ──────────────────────────────────────────────────────────────────────────────
+// ── Error View ────────────────────────────────────────────────────────────────
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.wifi_off_rounded,
+              color: Color(0xFF64748B), size: 48),
+          const SizedBox(height: 12),
+          Text(message,
+              style: GoogleFonts.plusJakartaSans(
+                  color: const Color(0xFF64748B)),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          TextButton(
+            onPressed: onRetry,
+            child: Text('Retry',
+                style: GoogleFonts.plusJakartaSans(
+                    color: const Color(0xFF6366F1))),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Summary card (bottom row) ─────────────────────────────────────────────────
 
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({
-    required this.emoji, required this.label, required this.value,
-    required this.change, required this.isPositive, required this.delay,
+    required this.emoji,
+    required this.label,
+    required this.value,
+    required this.sub,
+    required this.delay,
   });
   final String emoji;
   final String label;
   final String value;
-  final String change;
-  final bool isPositive;
+  final String sub;
   final Duration delay;
 
   @override
   Widget build(BuildContext context) {
-    final color = isPositive ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -389,57 +476,41 @@ class _SummaryCard extends StatelessWidget {
         border: Border.all(color: AppColors.glassBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 12, offset: const Offset(0, 4)),
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 52, height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.glassSurface,
-              borderRadius: BorderRadius.circular(14)),
-            child: Center(child: Text(emoji,
-              style: const TextStyle(fontSize: 24)))),
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                  color: AppColors.glassSurface,
+                  borderRadius: BorderRadius.circular(14)),
+              child: Center(
+                  child: Text(emoji,
+                      style: const TextStyle(fontSize: 24)))),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12, color: AppColors.textSecondary)),
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        color: AppColors.textSecondary)),
                 const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(value,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 26, fontWeight: FontWeight.w800,
-                        color: AppColors.textPrimary, letterSpacing: -0.8)),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(20)),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(isPositive
-                          ? Icons.arrow_upward_rounded
-                          : Icons.arrow_downward_rounded,
-                          size: 10, color: color),
-                        Text(' $change',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10, fontWeight: FontWeight.w700,
-                            color: color)),
-                      ]),
-                    ),
-                  ],
-                ),
-                Text('vs last month',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11, color: AppColors.textMuted)),
+                Text(value,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                        letterSpacing: -0.8)),
+                Text(sub,
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11, color: AppColors.textMuted)),
               ],
             ),
           ),
@@ -448,7 +519,11 @@ class _SummaryCard extends StatelessWidget {
     )
         .animate()
         .fadeIn(duration: 400.ms, delay: delay)
-        .slideY(begin: 0.2, end: 0, duration: 380.ms,
-          delay: delay, curve: Curves.easeOutCubic);
+        .slideY(
+            begin: 0.2,
+            end: 0,
+            duration: 380.ms,
+            delay: delay,
+            curve: Curves.easeOutCubic);
   }
 }

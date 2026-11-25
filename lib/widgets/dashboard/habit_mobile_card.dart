@@ -1,39 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../models/habit_model.dart';
+import '../../features/habits/domain/entities/habit_entity.dart';
 import '../../theme/app_colors.dart';
 
+// Icon → emoji map for dashboard cards
+const _kDashIconMap = <String, String>{
+  'check_circle': '✅',
+  'fitness': '🏋️',
+  'book': '📚',
+  'water': '💧',
+  'bed': '😴',
+  'run': '🏃',
+  'meditate': '🧘',
+  'food': '🍎',
+  'code': '💻',
+  'music': '🎵',
+};
+
 /// A compact, responsive card layout for a single habit.
-/// Used on Mobile and Tablet layouts.
-class HabitMobileCard extends StatefulWidget {
+/// Used on Mobile and Tablet layouts inside the Dashboard.
+class HabitMobileCard extends StatelessWidget {
   const HabitMobileCard({
     super.key,
     required this.habit,
+    required this.isCompleted,
     required this.index,
     required this.onToggle,
   });
 
-  final HabitModel habit;
+  final HabitEntity habit;
+  final bool isCompleted;
   final int index;
   final VoidCallback onToggle;
 
   @override
-  State<HabitMobileCard> createState() => _HabitMobileCardState();
-}
-
-class _HabitMobileCardState extends State<HabitMobileCard> {
-  static const _categoryColors = {
-    'Health': Color(0xFF22C55E),
-    'Fitness': Color(0xFF6366F1),
-    'Learning': Color(0xFFF59E0B),
-    'Mindfulness': Color(0xFF06B6D4),
-  };
-
-  @override
   Widget build(BuildContext context) {
-    final habit = widget.habit;
-    final catColor = _categoryColors[habit.category] ?? AppColors.textSecondary;
+    final color = Color(habit.color);
+    final emoji = _kDashIconMap[habit.icon] ?? '✅';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -41,7 +45,11 @@ class _HabitMobileCardState extends State<HabitMobileCard> {
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.glassBorder),
+        border: Border.all(
+          color: isCompleted
+              ? color.withValues(alpha: 0.35)
+              : AppColors.glassBorder,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),
@@ -52,22 +60,22 @@ class _HabitMobileCardState extends State<HabitMobileCard> {
       ),
       child: Row(
         children: [
-          // ── Emoji Icon ────────────────────────────────────────────────────
+          // ── Emoji Icon ──────────────────────────────────────────────────────
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: catColor.withValues(alpha: 0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Center(
-              child: Text(habit.emoji, style: const TextStyle(fontSize: 20)),
+              child: Text(emoji, style: const TextStyle(fontSize: 20)),
             ),
           ),
-          
+
           const SizedBox(width: 14),
-          
-          // ── Details ───────────────────────────────────────────────────────
+
+          // ── Details ─────────────────────────────────────────────────────────
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,12 +85,11 @@ class _HabitMobileCardState extends State<HabitMobileCard> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: habit.isCompleted
+                    color: isCompleted
                         ? AppColors.textSecondary
                         : AppColors.textPrimary,
-                    decoration: habit.isCompleted
-                        ? TextDecoration.lineThrough
-                        : null,
+                    decoration:
+                        isCompleted ? TextDecoration.lineThrough : null,
                     decorationColor: AppColors.textSecondary,
                   ),
                   maxLines: 1,
@@ -91,66 +98,67 @@ class _HabitMobileCardState extends State<HabitMobileCard> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    // Category Badge
+                    // Frequency Badge
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: catColor.withValues(alpha: 0.10),
+                        color: color.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        habit.category,
+                        habit.frequency,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: catColor,
+                          color: color,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    // Streak Badge
-                    Row(
-                      children: [
-                        const Text('🔥', style: TextStyle(fontSize: 10)),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${habit.streakDays}d',
+                    if (habit.description != null &&
+                        habit.description!.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          habit.description!,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.streakOrange,
+                            fontSize: 10,
+                            color: AppColors.textMuted,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
-          
+
           const SizedBox(width: 12),
-          
-          // ── Toggle Button ─────────────────────────────────────────────────
+
+          // ── Toggle Button ────────────────────────────────────────────────────
           GestureDetector(
-            onTap: widget.onToggle,
+            onTap: onToggle,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               width: 32,
               height: 32,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: habit.isCompleted ? AppColors.progressGradient : null,
+                color: isCompleted ? color : Colors.transparent,
                 border: Border.all(
-                  color: habit.isCompleted
+                  color: isCompleted
                       ? Colors.transparent
                       : AppColors.textMuted.withValues(alpha: 0.4),
                   width: 1.5,
                 ),
               ),
               child: Center(
-                child: habit.isCompleted
-                    ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+                child: isCompleted
+                    ? const Icon(Icons.check_rounded,
+                        size: 18, color: Colors.white)
                     : null,
               ),
             ),
@@ -159,12 +167,12 @@ class _HabitMobileCardState extends State<HabitMobileCard> {
       ),
     )
         .animate()
-        .fadeIn(duration: 300.ms, delay: (widget.index * 60).ms)
+        .fadeIn(duration: 300.ms, delay: (index * 60).ms)
         .slideX(
           begin: 0.05,
           end: 0,
           duration: 300.ms,
-          delay: (widget.index * 60).ms,
+          delay: (index * 60).ms,
           curve: Curves.easeOutCubic,
         );
   }

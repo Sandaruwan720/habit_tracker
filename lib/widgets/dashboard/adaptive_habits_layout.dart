@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/habit_model.dart';
+import '../../features/habits/domain/entities/habit_entity.dart';
 import 'habit_mobile_card.dart';
 import 'habits_data_table.dart';
 
@@ -9,10 +9,12 @@ class AdaptiveHabitsLayout extends StatelessWidget {
   const AdaptiveHabitsLayout({
     super.key,
     required this.habits,
+    required this.completedIds,
     required this.onToggle,
   });
 
-  final List<HabitModel> habits;
+  final List<HabitEntity> habits;
+  final Set<String> completedIds;
   final void Function(String id) onToggle;
 
   @override
@@ -26,27 +28,29 @@ class AdaptiveHabitsLayout extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: habits.asMap().entries.map((entry) {
+              final habit = entry.value;
               return HabitMobileCard(
-                habit: entry.value,
+                habit: habit,
+                isCompleted: completedIds.contains(habit.id),
                 index: entry.key,
-                onToggle: () => onToggle(entry.value.id),
+                onToggle: () => onToggle(habit.id),
               );
             }).toList(),
           );
         } else if (width < 1000) {
           // ── Tablet: 2-column grid of cards ─────────────────────────────────
-          // Since we might be inside an IntrinsicHeight or ScrollView,
-          // we use a Wrap instead of GridView to avoid nested scrolling issues.
           return Wrap(
             spacing: 16,
-            runSpacing: 0, // HabitMobileCard already has bottom margin
+            runSpacing: 0,
             children: habits.asMap().entries.map((entry) {
+              final habit = entry.value;
               return SizedBox(
-                width: (width - 16) / 2, // 2 columns with 16px spacing
+                width: (width - 16) / 2,
                 child: HabitMobileCard(
-                  habit: entry.value,
+                  habit: habit,
+                  isCompleted: completedIds.contains(habit.id),
                   index: entry.key,
-                  onToggle: () => onToggle(entry.value.id),
+                  onToggle: () => onToggle(habit.id),
                 ),
               );
             }).toList(),
@@ -55,6 +59,7 @@ class AdaptiveHabitsLayout extends StatelessWidget {
           // ── Desktop: Professional Data Table ───────────────────────────────
           return HabitsDataTable(
             habits: habits,
+            completedIds: completedIds,
             onToggle: onToggle,
           );
         }
