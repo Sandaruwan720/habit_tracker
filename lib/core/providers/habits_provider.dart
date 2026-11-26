@@ -173,4 +173,13 @@ class HabitsProvider extends ChangeNotifier {
     _errorMessage = msg;
     notifyListeners();
   }
+
+  /// Call this after sign-out to wipe local state.
+  void clear() {
+    _habits = [];
+    _todayLogs = {};
+    _status = HabitsStatus.idle;
+    _errorMessage = null;
+    notifyListeners();
+  }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/habits/data/datasources/habits_local_datasource.dart';
 import '../../features/habits/data/datasources/habits_remote_datasource.dart';
 import '../config/app_config.dart';
@@ -24,6 +25,7 @@ class SyncManager {
 
   Timer? _timer;
   StreamSubscription<bool>? _connSub;
+  StreamSubscription<AuthState>? _authSub;
   bool _isSyncing = false;
 
   // ---------------------------------------------------------------------------
@@ -31,6 +33,18 @@ class SyncManager {
   // ---------------------------------------------------------------------------
 
   void initialize() {
+    // React to auth state changes
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
+      if (data.event == AuthChangeEvent.signedIn) {
+        if (await connectivity.isConnected()) {
+          _runSync();
+        }
+      } else if (data.event == AuthChangeEvent.signedOut) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(AppConfig.syncCursorKey);
+      }
+    });
+
     // React to connectivity changes
     _connSub = connectivity.onConnectivityChanged.listen((isOnline) {
       if (isOnline) _runSync();
@@ -47,6 +61,7 @@ class SyncManager {
   void dispose() {
     _timer?.cancel();
     _connSub?.cancel();
+    _authSub?.cancel();
   }
 
   // ---------------------------------------------------------------------------
@@ -54,6 +69,9 @@ class SyncManager {
   // ---------------------------------------------------------------------------
 
   Future<void> _runSync() async {
+    // Skip sync if user is not authenticated
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
     if (_isSyncing) return;
     _isSyncing = true;
     try {

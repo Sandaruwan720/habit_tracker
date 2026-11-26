@@ -64,13 +64,34 @@ class HabitTrackerApp extends StatelessWidget {
         title: 'HabitFlow',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.dark,
+        home: const _AuthGate(),
         routes: {
-          '/': (_) => Supabase.instance.client.auth.currentUser == null
-              ? const LoginScreen()
-              : const AppShell(),
           '/home': (_) => const AppShell(),
         },
       ),
+    );
+  }
+}
+
+/// Listens to Supabase auth state and routes accordingly.
+class _AuthGate extends StatefulWidget {
+  const _AuthGate();
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: Supabase.instance.client.auth.onAuthStateChange,
+      builder: (context, snapshot) {
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null) {
+          return const AppShell();
+        }
+        return const LoginScreen();
+      },
     );
   }
 }

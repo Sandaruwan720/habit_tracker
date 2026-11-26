@@ -156,10 +156,10 @@ class SettingsScreen extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
+      final provider = context.read<HabitsProvider>();
+      provider.clear();
       await AuthRemoteDatasource().signOut();
-      if (context.mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
-      }
+      // _AuthGate stream automatically redirects to LoginScreen — no manual navigation needed.
     }
   }
 
@@ -259,7 +259,7 @@ class _AppShellState extends State<AppShell> {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
         border: Border(
-          top: BorderSide(color: Colors.white.withOpacity(0.06)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
       ),
       child: BottomNavigationBar(

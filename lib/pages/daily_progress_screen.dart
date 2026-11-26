@@ -45,16 +45,16 @@ class _DailyProgressScreenState extends State<DailyProgressScreen> {
       backgroundColor: const Color(0xFF0A0E1A),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
+          final provider = context.read<HabitsProvider>();
           final added = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
                 builder: (_) => ChangeNotifierProvider.value(
-                      value: context.read<HabitsProvider>(),
+                      value: provider,
                       child: const AddHabitScreen(),
                     )),
           );
-          if (added == true) {
-            // Reload
-            if (mounted) context.read<HabitsProvider>().loadHabits();
+          if (added == true && mounted) {
+            provider.loadHabits();
           }
         },
         backgroundColor: const Color(0xFF6366F1),
@@ -334,12 +334,12 @@ class _HabitTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isCompleted
-              ? color.withOpacity(0.12)
+              ? color.withValues(alpha: 0.12)
               : const Color(0xFF1E293B),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isCompleted
-                ? color.withOpacity(0.4)
+                ? color.withValues(alpha: 0.4)
                 : const Color(0xFF334155),
             width: 1.5,
           ),
@@ -351,7 +351,7 @@ class _HabitTile extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 22),
@@ -434,7 +434,7 @@ class _FrequencyChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(

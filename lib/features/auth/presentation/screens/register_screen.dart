@@ -207,38 +207,9 @@ class _RegisterFormState extends State<_RegisterForm> {
       _passwordController.text,
     );
     if (controller.isSuccess && mounted) {
-      _showSuccessDialog();
+      // Email confirm is OFF in Supabase — navigate directly to app
+      Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
     }
-  }
-
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: Text('Account Created! 🎉',
-            style: GoogleFonts.plusJakartaSans(
-                color: Colors.white, fontWeight: FontWeight.w700)),
-        content: Text(
-          'Please check your email to confirm your account, then sign in.',
-          style:
-              GoogleFonts.plusJakartaSans(color: const Color(0xFF94A3B8)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // close dialog
-              widget.onNavigateToLogin?.call();
-            },
-            child: Text('Go to Sign In',
-                style: GoogleFonts.plusJakartaSans(
-                    color: const Color(0xFF6366F1),
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
   }
 
   @override

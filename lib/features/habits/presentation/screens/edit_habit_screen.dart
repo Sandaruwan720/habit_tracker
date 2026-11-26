@@ -189,10 +189,10 @@ class _EditHabitScreenState extends State<EditHabitScreen> {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: Color(_selectedColor).withOpacity(0.15),
+                    color: Color(_selectedColor).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                     border: Border.all(
-                        color: Color(_selectedColor).withOpacity(0.5),
+                        color: Color(_selectedColor).withValues(alpha: 0.5),
                         width: 2),
                   ),
                   child: Icon(
@@ -241,7 +241,7 @@ class _EditHabitScreenState extends State<EditHabitScreen> {
                             horizontal: 20, vertical: 10),
                         decoration: BoxDecoration(
                           color: selected
-                              ? const Color(0xFF6366F1).withOpacity(0.2)
+                              ? const Color(0xFF6366F1).withValues(alpha: 0.2)
                               : const Color(0xFF1E293B),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
@@ -292,7 +292,7 @@ class _EditHabitScreenState extends State<EditHabitScreen> {
                         boxShadow: selected
                             ? [
                                 BoxShadow(
-                                  color: Color(c).withOpacity(0.5),
+                                  color: Color(c).withValues(alpha: 0.5),
                                   blurRadius: 10,
                                   spreadRadius: 2,
                                 )
@@ -325,7 +325,7 @@ class _EditHabitScreenState extends State<EditHabitScreen> {
                       height: 52,
                       decoration: BoxDecoration(
                         color: selected
-                            ? Color(_selectedColor).withOpacity(0.2)
+                            ? Color(_selectedColor).withValues(alpha: 0.2)
                             : const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
